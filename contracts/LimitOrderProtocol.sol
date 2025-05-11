@@ -34,6 +34,10 @@ contract LimitOrderProtocol is
     Pausable,
     OrderMixin
 {
+    // State variables
+    uint256 private orderExecutionLimit; // Maximum number of orders allowed
+    uint256 private executedOrders;      // Counter for executed orders
+
     // solhint-disable-next-line no-empty-blocks
     constructor(IWETH _weth) OrderMixin(_weth) Ownable(msg.sender) {}
 
@@ -55,5 +59,32 @@ contract LimitOrderProtocol is
      */
     function unpause() external onlyOwner {
         _unpause();
+    }
+
+    /**
+     * @notice Sets a global limit on the number of orders that can be executed.
+     * @dev Only the owner can set this limit. Setting it to 0 disables the limit.
+     * @param _limit The maximum number of orders that can be executed.
+     */
+    function setOrderExecutionLimit(uint256 _limit) external onlyOwner {
+        orderExecutionLimit = _limit;
+    }
+
+    /**
+     * @notice Returns the current global limit on order executions.
+     * @return The maximum number of orders that can be executed.
+     */
+    function getOrderExecutionLimit() external view returns (uint256) {
+        return orderExecutionLimit;
+    }
+
+    /**
+     * @notice Internal function to track executed orders and enforce the limit.
+     */
+    function _trackOrderExecution() internal {
+        if (orderExecutionLimit > 0) {
+            require(executedOrders < orderExecutionLimit, "Order execution limit reached");
+            executedOrders++;
+        }
     }
 }

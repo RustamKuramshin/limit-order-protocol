@@ -24,6 +24,31 @@
     },
     {
       "inputs": [],
+      "name": "MathOverflowedSub",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "NotEnoughLiquidity",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "NotOwner",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "OrderExpired",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "OrderNotValid",
+      "type": "error"
+    },
+    {
+      "inputs": [],
       "name": "StaleOraclePrice",
       "type": "error"
     },
