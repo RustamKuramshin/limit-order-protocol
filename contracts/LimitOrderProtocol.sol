@@ -38,6 +38,10 @@ contract LimitOrderProtocol is
     uint256 private orderExecutionLimit; // Maximum number of orders allowed
     uint256 private executedOrders;      // Counter for executed orders
 
+    // Mapping to store individual execution limits for users
+    mapping(address => uint256) private userOrderExecutionLimits;
+    mapping(address => uint256) private userExecutedOrders;
+
     // solhint-disable-next-line no-empty-blocks
     constructor(IWETH _weth) OrderMixin(_weth) Ownable(msg.sender) {}
 
@@ -79,6 +83,35 @@ contract LimitOrderProtocol is
     }
 
     /**
+     * @notice Sets an individual limit on the number of orders a user can execute.
+     * @dev Only the owner can set this limit for a specific user. Setting it to 0 disables the limit for that user.
+     * @param user The address of the user.
+     * @param limit The maximum number of orders the user can execute.
+     */
+    function setUserOrderExecutionLimit(address user, uint256 limit) external onlyOwner {
+        require(user != address(0), "Invalid user address");
+        userOrderExecutionLimits[user] = limit;
+    }
+
+    /**
+     * @notice Returns the current individual limit on order executions for a user.
+     * @param user The address of the user.
+     * @return The maximum number of orders the user can execute.
+     */
+    function getUserOrderExecutionLimit(address user) external view returns (uint256) {
+        return userOrderExecutionLimits[user];
+    }
+
+    /**
+     * @notice Returns the number of orders executed by a specific user.
+     * @param user The address of the user.
+     * @return The number of orders executed by the user.
+     */
+    function getUserExecutedOrders(address user) external view returns (uint256) {
+        return userExecutedOrders[user];
+    }
+
+    /**
      * @notice Internal function to track executed orders and enforce the limit.
      */
     function _trackOrderExecution() internal {
@@ -86,5 +119,35 @@ contract LimitOrderProtocol is
             require(executedOrders < orderExecutionLimit, "Order execution limit reached");
             executedOrders++;
         }
+    }
+
+    /**
+     * @notice Internal function to track executed orders for a specific user and enforce their individual limit.
+     * @param user The address of the user executing the order.
+     */
+    function _trackUserOrderExecution(address user) internal {
+        uint256 userLimit = userOrderExecutionLimits[user];
+        if (userLimit > 0) {
+            require(userExecutedOrders[user] < userLimit, "User order execution limit reached");
+            userExecutedOrders[user]++;
+        }
+    }
+
+    /**
+     * @notice Executes an order on behalf of a user, enforcing both global and individual limits.
+     * @dev This is a placeholder for the actual order execution logic.
+     * @param user The address of the user executing the order.
+     */
+    function executeOrder(address user) external {
+        require(user != address(0), "Invalid user address");
+
+        // Enforce global limit
+        _trackOrderExecution();
+
+        // Enforce individual user limit
+        _trackUserOrderExecution(user);
+
+        // Placeholder for actual order execution logic
+        // ...
     }
 }
