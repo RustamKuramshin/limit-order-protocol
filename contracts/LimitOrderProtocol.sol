@@ -42,6 +42,13 @@ contract LimitOrderProtocol is
     mapping(address => uint256) private userOrderExecutionLimits;
     mapping(address => uint256) private userExecutedOrders;
 
+    // State variable to store the fee percentage (in basis points, e.g., 100 = 1%)
+    uint256 private executionFeeBps;
+    address private feeRecipient;
+
+    // State variable to store the reward amount for executors
+    uint256 private executorReward;
+
     // solhint-disable-next-line no-empty-blocks
     constructor(IWETH _weth) OrderMixin(_weth) Ownable(msg.sender) {}
 
@@ -112,6 +119,51 @@ contract LimitOrderProtocol is
     }
 
     /**
+     * @notice Sets the fee percentage for order execution.
+     * @dev Only the owner can set this fee. Fee is in basis points (1% = 100 bps).
+     * @param _feeBps The fee percentage in basis points.
+     */
+    function setExecutionFee(uint256 _feeBps) external onlyOwner {
+        require(_feeBps <= 1000, "Fee too high"); // Max fee is 10%
+        executionFeeBps = _feeBps;
+    }
+
+    /**
+     * @notice Sets the recipient address for the execution fees.
+     * @dev Only the owner can set this address.
+     * @param _recipient The address to receive the fees.
+     */
+    function setFeeRecipient(address _recipient) external onlyOwner {
+        require(_recipient != address(0), "Invalid recipient address");
+        feeRecipient = _recipient;
+    }
+
+    /**
+     * @notice Returns the current execution fee percentage.
+     * @return The fee percentage in basis points.
+     */
+    function getExecutionFee() external view returns (uint256) {
+        return executionFeeBps;
+    }
+
+    /**
+     * @notice Sets the reward amount for executors.
+     * @dev Only the owner can set this value.
+     * @param _reward The reward amount in wei.
+     */
+    function setExecutorReward(uint256 _reward) external onlyOwner {
+        executorReward = _reward;
+    }
+
+    /**
+     * @notice Returns the current reward amount for executors.
+     * @return The reward amount in wei.
+     */
+    function getExecutorReward() external view returns (uint256) {
+        return executorReward;
+    }
+
+    /**
      * @notice Internal function to track executed orders and enforce the limit.
      */
     function _trackOrderExecution() internal {
@@ -146,6 +198,46 @@ contract LimitOrderProtocol is
 
         // Enforce individual user limit
         _trackUserOrderExecution(user);
+
+        // Placeholder for actual order execution logic
+        // ...
+    }
+
+    /**
+     * @notice Executes an order and deducts the execution fee.
+     * @param user The address of the user executing the order.
+     */
+    function executeOrderWithFee(address user) external payable {
+        require(user != address(0), "Invalid user address");
+
+        // Calculate the fee
+        uint256 fee = (msg.value * executionFeeBps) / 10000;
+        require(msg.value >= fee, "Insufficient fee");
+
+        // Transfer the fee to the recipient
+        payable(feeRecipient).transfer(fee);
+
+        // Enforce global and individual limits
+        _trackOrderExecution();
+        _trackUserOrderExecution(user);
+
+        // Placeholder for actual order execution logic
+        // ...
+    }
+
+    /**
+     * @notice Executes an order and rewards the executor.
+     * @param user The address of the user executing the order.
+     */
+    function executeOrderWithReward(address user) external {
+        require(user != address(0), "Invalid user address");
+
+        // Enforce global and individual limits
+        _trackOrderExecution();
+        _trackUserOrderExecution(user);
+
+        // Reward the executor
+        payable(msg.sender).transfer(executorReward);
 
         // Placeholder for actual order execution logic
         // ...
