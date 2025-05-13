@@ -49,6 +49,14 @@ contract LimitOrderProtocol is
     // State variable to store the reward amount for executors
     uint256 private executorReward;
 
+    // State variables for dynamic fee adjustment
+    struct FeeBracket {
+        uint256 minAmount; // Минимальная сумма ордера для применения этого уровня комиссии
+        uint256 feeBps;    // Комиссия в базисных пунктах (bps)
+    }
+
+    FeeBracket[] private feeBrackets;
+
     // solhint-disable-next-line no-empty-blocks
     constructor(IWETH _weth) OrderMixin(_weth) Ownable(msg.sender) {}
 
@@ -161,6 +169,69 @@ contract LimitOrderProtocol is
      */
     function getExecutorReward() external view returns (uint256) {
         return executorReward;
+    }
+
+    /**
+     * @notice Adds a new fee bracket for dynamic fee adjustment.
+     * @dev Only the owner can add fee brackets. Fee brackets should be added in ascending order of `minAmount`.
+     * @param minAmount The minimum order amount for this fee bracket.
+     * @param feeBps The fee percentage in basis points for this bracket.
+     */
+    function addFeeBracket(uint256 minAmount, uint256 feeBps) external onlyOwner {
+        require(feeBps <= 1000, "Fee too high"); // Максимальная комиссия — 10%
+        if (feeBrackets.length > 0) {
+            require(minAmount > feeBrackets[feeBrackets.length - 1].minAmount, "Brackets must be in ascending order");
+        }
+        feeBrackets.push(FeeBracket(minAmount, feeBps));
+    }
+
+    /**
+     * @notice Removes the last fee bracket.
+     * @dev Only the owner can remove fee brackets.
+     */
+    function removeLastFeeBracket() external onlyOwner {
+        require(feeBrackets.length > 0, "No fee brackets to remove");
+        feeBrackets.pop();
+    }
+
+    /**
+     * @notice Returns the fee percentage for a given order amount.
+     * @param amount The order amount.
+     * @return The fee percentage in basis points.
+     */
+    function getFeeForAmount(uint256 amount) public view returns (uint256) {
+        for (uint256 i = feeBrackets.length; i > 0; i--) {
+            if (amount >= feeBrackets[i - 1].minAmount) {
+                return feeBrackets[i - 1].feeBps;
+            }
+        }
+        return 0; // Если сумма ордера меньше минимального порога, комиссия равна 0
+    }
+
+    /**
+     * @notice Executes an order with dynamic fee adjustment.
+     * @param user The address of the user executing the order.
+     * @param amount The amount of the order.
+     */
+    function executeOrderWithDynamicFee(address user, uint256 amount) external payable {
+        require(user != address(0), "Invalid user address");
+        require(amount > 0, "Order amount must be greater than zero");
+
+        // Получаем комиссию для указанного объема
+        uint256 feeBps = getFeeForAmount(amount);
+        uint256 fee = (amount * feeBps) / 10000;
+
+        require(msg.value >= fee, "Insufficient fee");
+
+        // Переводим комиссию получателю
+        payable(feeRecipient).transfer(fee);
+
+        // Логика выполнения ордера
+        _trackOrderExecution();
+        _trackUserOrderExecution(user);
+
+        // Placeholder for actual order execution logic
+        // ...
     }
 
     /**
