@@ -49,6 +49,9 @@ contract LimitOrderProtocol is
     // State variable to store the reward amount for executors
     uint256 private executorReward;
 
+    // State variable to store the cashback percentage (in basis points, e.g., 100 = 1%)
+    uint256 private cashbackBps;
+
     // State variables for dynamic fee adjustment
     struct FeeBracket {
         uint256 minAmount; // Минимальная сумма ордера для применения этого уровня комиссии
@@ -172,6 +175,24 @@ contract LimitOrderProtocol is
     }
 
     /**
+     * @notice Sets the cashback percentage for users.
+     * @dev Only the owner can set this value. Cashback is in basis points (1% = 100 bps).
+     * @param _cashbackBps The cashback percentage in basis points.
+     */
+    function setCashback(uint256 _cashbackBps) external onlyOwner {
+        require(_cashbackBps <= 500, "Cashback too high"); // Максимальный кэшбэк — 5%
+        cashbackBps = _cashbackBps;
+    }
+
+    /**
+     * @notice Returns the current cashback percentage.
+     * @return The cashback percentage in basis points.
+     */
+    function getCashback() external view returns (uint256) {
+        return cashbackBps;
+    }
+
+    /**
      * @notice Adds a new fee bracket for dynamic fee adjustment.
      * @dev Only the owner can add fee brackets. Fee brackets should be added in ascending order of `minAmount`.
      * @param minAmount The minimum order amount for this fee bracket.
@@ -227,6 +248,37 @@ contract LimitOrderProtocol is
         payable(feeRecipient).transfer(fee);
 
         // Логика выполнения ордера
+        _trackOrderExecution();
+        _trackUserOrderExecution(user);
+
+        // Placeholder for actual order execution logic
+        // ...
+    }
+
+    /**
+     * @notice Executes an order with cashback for the user.
+     * @param user The address of the user executing the order.
+     * @param amount The amount of the order.
+     */
+    function executeOrderWithCashback(address user, uint256 amount) external payable {
+        require(user != address(0), "Invalid user address");
+        require(amount > 0, "Order amount must be greater than zero");
+
+        // Calculate the fee
+        uint256 feeBps = getFeeForAmount(amount);
+        uint256 fee = (amount * feeBps) / 10000;
+        require(msg.value >= fee, "Insufficient fee");
+
+        // Calculate the cashback
+        uint256 cashback = (fee * cashbackBps) / 10000;
+
+        // Transfer the fee to the recipient
+        payable(feeRecipient).transfer(fee - cashback);
+
+        // Transfer the cashback to the user
+        payable(user).transfer(cashback);
+
+        // Enforce global and individual limits
         _trackOrderExecution();
         _trackUserOrderExecution(user);
 
